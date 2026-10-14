@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+  body {
+    @apply m-0 min-h-screen bg-brand-bg font-body text-ink-dark antialiased;
+  }
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer utilities {
+  .page-enter {
+    animation: fade-in 200ms ease forwards;
+  }
+  .card-hover {
+    @apply transition-all duration-150 ease-out hover:-translate-y-0.5 hover:shadow-card-hover;
+  }
+  .btn-press {
+    @apply active:scale-[0.97] transition-transform duration-100;
+  }
+}
