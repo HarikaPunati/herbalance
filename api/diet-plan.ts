@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { DayPlan } from "../src/lib/dietPlanStore";
-import { PLAN_SCHEMA, buildPrompt, parseRequest } from "./_lib/dietPrompt";
+import { PLAN_SCHEMA, buildPrompt, parseRequest } from "./_lib/dietPrompt.js";
 
 // POST /api/diet-plan — runs on Vercel (and through the Vite dev middleware locally).
 // The Anthropic key lives only here, in ANTHROPIC_API_KEY; the browser never sees it.

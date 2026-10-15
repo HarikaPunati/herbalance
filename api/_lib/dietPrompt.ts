@@ -1,4 +1,4 @@
-import { CONDITION_NAMES } from "../../src/lib/conditions";
+import { CONDITION_NAMES } from "../../src/lib/conditions.js";
 
 export type PhaseKey = "menstrual" | "follicular" | "ovulatory" | "luteal";
 
