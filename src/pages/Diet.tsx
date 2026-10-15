@@ -5,11 +5,11 @@ import { CalorieRing } from "../components/CalorieRing";
 import { MealCard } from "../components/MealCard";
 import type { MealCardProps } from "../components/MealCard";
 import { PHASE_META } from "../types/cycle";
+import type { CyclePhaseKey } from "../types/cycle";
 import { useCuisinePrefs } from "../hooks/useCuisinePrefs";
 import { useProfileData } from "../hooks/useProfileData";
 import { supabase, getOrCreateUserId } from "../lib/supabase";
 import { CONDITION_NAMES, calorieTarget, loadStoredProfile } from "../lib/profileStore";
-import type { StoredProfile } from "../lib/profileStore";
 import { loadLocalPlan, saveLocalPlan, todayPlanIndex } from "../lib/dietPlanStore";
 import type { DayPlan, MealItem, StoredDietPlan } from "../lib/dietPlanStore";
 
@@ -110,109 +110,34 @@ async function persistPlan(plan: DayPlan[], duration: number, cuisines: string[]
 }
 
 // ─── AI call ─────────────────────────────────────────────────────────────────
+// The prompt is built server-side in api/diet-plan.ts, which also holds the API key.
 
-function describeUser(p: Partial<StoredProfile>): string {
-  const conditions = (p.conditions ?? []).map((c) => CONDITION_NAMES[c]).filter(Boolean);
-  const parts = [
-    conditions.length > 0 ? `who has ${conditions.join(" and ")}` : "focused on hormonal balance",
-  ];
-  if (p.age) parts.push(`aged ${p.age}`);
-  return parts.join(", ");
-}
-
-function dietaryRules(p: Partial<StoredProfile>): string {
-  const rules: string[] = [];
-  if (p.dietary_preference && p.dietary_preference !== "Omnivore") {
-    rules.push(`- Diet: strictly ${p.dietary_preference} — every meal must comply`);
-  }
-  if (p.food_allergies?.trim()) {
-    rules.push(`- ALLERGIES — never include: ${p.food_allergies.trim()}`);
-  }
-  if (p.primary_goal) rules.push(`- Primary goal: ${p.primary_goal}`);
-  if (p.symptoms && p.symptoms.length > 0) {
-    rules.push(`- Help ease these symptoms where food can: ${p.symptoms.join(", ")}`);
-  }
-  return rules.length > 0 ? rules.join("\n") + "\n" : "";
-}
-
-async function fetchDietPlan(days: number, phaseLabel: string, cuisines: string[]): Promise<DayPlan[]> {
+async function fetchDietPlan(days: 7 | 14, phase: CyclePhaseKey, cuisines: string[]): Promise<DayPlan[]> {
   const profile = loadStoredProfile();
-  const kcal = calorieTarget(profile) ?? 1650;
-  const kcalLow = kcal - 100;
-  const kcalHigh = kcal + 100;
-  // Macro split ~30% protein / 45% carbs / 25% fat — the same balance the old fixed targets used
-  const protein = Math.round((kcal * 0.3) / 4);
-  const carbs = Math.round((kcal * 0.45) / 4);
-  const fat = Math.round((kcal * 0.25) / 9);
-
-  const cuisineBlock = cuisines.length > 0
-    ? `The user enjoys these cuisines: ${cuisines.join(", ")}.\nRotate through them across the ${days} days — assign one per day. Do not use the same cuisine two days in a row. Let the cuisine shape all 5 meals for that day (flavour, ingredients, cooking methods).`
-    : `Use a rotating variety of world cuisines — assign one cuisine theme per day for maximum food culture diversity.`;
-
-  const prompt = `You are a nutritionist building a hormone-friendly ${days}-day meal plan for a woman ${describeUser(profile)}, currently in the ${phaseLabel} phase of her menstrual cycle.
-
-${cuisineBlock}
-
-Generate exactly ${days} day objects with FIVE meals each: Breakfast, Mid-morning snack, Lunch, Afternoon snack, Dinner.
-
-CRITICAL RULES:
-- Do NOT repeat any dish name across all ${days} days — every meal must be unique
-- Vary protein sources, cooking methods, and flavour profiles daily
-- All meals must be anti-inflammatory and hormone-supportive for the ${phaseLabel} phase
-- Daily calorie total: ${kcalLow}–${kcalHigh} kcal
-- Macro targets: Protein ~${protein} g, Carbs ~${carbs} g, Fat ~${fat} g
-${dietaryRules(profile)}- Prioritise: leafy greens, oily fish, legumes, whole grains, seeds, healthy fats, antioxidants
-- Avoid: refined sugar, ultra-processed foods, trans fats, excess caffeine
-
-Return ONLY valid JSON — no markdown fences, no explanation:
-
-{
-  "days": [
-    {
-      "day": 1,
-      "date_label": "Day 1",
-      "cuisine_of_day": "South Indian",
-      "total_calories": 1680,
-      "macros": { "protein": 138, "carbs": 182, "fat": 54 },
-      "meals": [
-        { "type": "Breakfast",          "name": "...", "description": "...", "ingredients": ["..."], "calories": 380, "tags": ["High protein"], "prep_note": "..." },
-        { "type": "Mid-morning snack",  "name": "...", "description": "...", "ingredients": ["..."], "calories": 160, "tags": ["Low GI"],      "prep_note": "..." },
-        { "type": "Lunch",              "name": "...", "description": "...", "ingredients": ["..."], "calories": 490, "tags": ["Fiber-rich"],  "prep_note": "..." },
-        { "type": "Afternoon snack",    "name": "...", "description": "...", "ingredients": ["..."], "calories": 170, "tags": ["Protein"],     "prep_note": "..." },
-        { "type": "Dinner",             "name": "...", "description": "...", "ingredients": ["..."], "calories": 480, "tags": ["Omega-3"],     "prep_note": "..." }
-      ]
-    }
-  ]
-}
-
-Return exactly ${days} day objects.`;
-
-  const res = await fetch("/api/anthropic/v1/messages", {
+  const res = await fetch("/api/diet-plan", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      model: "claude-opus-4-7",
-      max_tokens: days === 7 ? 10000 : 20000,
-      messages: [{ role: "user", content: prompt }],
+      days,
+      phase,
+      cuisines,
+      kcalTarget: calorieTarget(profile),
+      profile: {
+        age: profile.age,
+        dietary_preference: profile.dietary_preference,
+        food_allergies: profile.food_allergies,
+        primary_goal: profile.primary_goal,
+        conditions: profile.conditions,
+        symptoms: profile.symptoms,
+      },
     }),
   });
 
-  if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
-      throw new Error("API key missing or invalid. Add ANTHROPIC_API_KEY to your .env file and restart the dev server.");
-    }
-    const txt = await res.text().catch(() => "");
-    throw new Error(`Generation failed (${res.status})${txt ? ": " + txt.slice(0, 200) : ""}`);
+  const data = (await res.json().catch(() => null)) as { days?: DayPlan[]; error?: string } | null;
+  if (!res.ok || !data?.days) {
+    throw new Error(data?.error ?? `Generation failed (${res.status}). Please try again.`);
   }
-
-  const data = await res.json();
-  const raw: string = data?.content?.[0]?.text ?? "";
-  if (!raw) throw new Error("Empty response from AI. Please try again.");
-
-  const jsonStr = raw.replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
-  const parsed = JSON.parse(jsonStr);
-  if (!Array.isArray(parsed?.days)) throw new Error("Unexpected response format. Please try again.");
-  return parsed.days as DayPlan[];
+  return data.days;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -278,8 +203,8 @@ export function Diet() {
     setGenerating(true);
     setError(null);
     try {
-      const days = parseInt(duration);
-      const plan = await fetchDietPlan(days, phaseLabel, cuisines);
+      const days = duration === "14" ? 14 : 7;
+      const plan = await fetchDietPlan(days, phase, cuisines);
       setGeneratedPlan(plan);
       setStartDate(undefined);
       setDayIdx(0);
@@ -297,8 +222,8 @@ export function Diet() {
     setRegenerating(true);
     setError(null);
     try {
-      const days = parseInt(duration);
-      const plan = await fetchDietPlan(days, phaseLabel, cuisines);
+      const days = duration === "14" ? 14 : 7;
+      const plan = await fetchDietPlan(days, phase, cuisines);
       setGeneratedPlan(plan);
       setStartDate(undefined);
       setDayIdx(0);

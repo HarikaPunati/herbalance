@@ -25,14 +25,7 @@ export type StoredProfile = {
   notes?: string;
 };
 
-export const CONDITION_NAMES: Record<string, string> = {
-  thyroid: "a thyroid condition",
-  pmos: "PMOS (formerly PCOS)",
-  pcod: "PCOD",
-  endo: "endometriosis",
-  pmdd: "PMDD / severe PMS",
-  other: "an undiagnosed hormonal imbalance",
-};
+export { CONDITION_NAMES } from "./conditions";
 
 export function hasProfile(): boolean {
   try {
