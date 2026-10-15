@@ -55,6 +55,8 @@ export async function POST(request: Request): Promise<Response> {
     if (days.length === 0) return json({ error: "Empty plan. Please try again." }, 502);
     return json({ days });
   } catch (error) {
+    // Shows up in Vercel → Logs. Error messages from the API never contain the key.
+    console.error("diet-plan failed:", error instanceof Anthropic.APIError ? `${error.status} ${error.message}` : error);
     if (error instanceof Anthropic.AuthenticationError) {
       return json({ error: "The server's Anthropic API key is invalid." }, 500);
     }
