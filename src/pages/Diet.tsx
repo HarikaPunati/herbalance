@@ -9,7 +9,10 @@ import type { CyclePhaseKey } from "../types/cycle";
 import { useCuisinePrefs } from "../hooks/useCuisinePrefs";
 import { useProfileData } from "../hooks/useProfileData";
 import { supabase, getOrCreateUserId } from "../lib/supabase";
-import { CONDITION_NAMES, calorieTarget, loadStoredProfile } from "../lib/profileStore";
+import { CONDITION_NAMES, loadStoredProfile } from "../lib/profileStore";
+import { useTargets } from "../hooks/useTargets";
+import { goalLabel } from "../lib/goals";
+import type { DailyTargets } from "../lib/targets";
 import { loadLocalPlan, saveLocalPlan, todayPlanIndex } from "../lib/dietPlanStore";
 import type { DayPlan, MealItem, StoredDietPlan } from "../lib/dietPlanStore";
 
@@ -112,7 +115,7 @@ async function persistPlan(plan: DayPlan[], duration: number, cuisines: string[]
 // ─── AI call ─────────────────────────────────────────────────────────────────
 // The prompt is built server-side in api/diet-plan.ts, which also holds the API key.
 
-async function fetchDietPlan(days: 7 | 14, phase: CyclePhaseKey, cuisines: string[]): Promise<DayPlan[]> {
+async function fetchDietPlan(days: 7 | 14, phase: CyclePhaseKey, cuisines: string[], targets: DailyTargets): Promise<DayPlan[]> {
   const profile = loadStoredProfile();
   const res = await fetch("/api/diet-plan", {
     method: "POST",
@@ -121,12 +124,13 @@ async function fetchDietPlan(days: 7 | 14, phase: CyclePhaseKey, cuisines: strin
       days,
       phase,
       cuisines,
-      kcalTarget: calorieTarget(profile),
+      kcalTarget: targets.kcal,
+      macros: targets.macros,
+      goal: targets.goal,
       profile: {
         age: profile.age,
         dietary_preference: profile.dietary_preference,
         food_allergies: profile.food_allergies,
-        primary_goal: profile.primary_goal,
         conditions: profile.conditions,
         symptoms: profile.symptoms,
       },
@@ -145,7 +149,8 @@ async function fetchDietPlan(days: 7 | 14, phase: CyclePhaseKey, cuisines: strin
 export function Diet() {
   const { phase } = useProfileData();
   const profile = useMemo(loadStoredProfile, []);
-  const kcalTarget = calorieTarget(profile);
+  const targets = useTargets();
+  const kcalTarget = targets.kcal;
   const conditionLabel = (profile.conditions ?? []).map((c) => CONDITION_NAMES[c]?.replace(/^an? /, "")).filter(Boolean).join(" & ");
   const phaseLabel = PHASE_META[phase].label;
   const phaseFoods = PHASE_FOODS[phase];
@@ -204,7 +209,7 @@ export function Diet() {
     setError(null);
     try {
       const days = duration === "14" ? 14 : 7;
-      const plan = await fetchDietPlan(days, phase, cuisines);
+      const plan = await fetchDietPlan(days, phase, cuisines, targets);
       setGeneratedPlan(plan);
       setStartDate(undefined);
       setDayIdx(0);
@@ -223,7 +228,7 @@ export function Diet() {
     setError(null);
     try {
       const days = duration === "14" ? 14 : 7;
-      const plan = await fetchDietPlan(days, phase, cuisines);
+      const plan = await fetchDietPlan(days, phase, cuisines, targets);
       setGeneratedPlan(plan);
       setStartDate(undefined);
       setDayIdx(0);
@@ -379,7 +384,7 @@ export function Diet() {
             </div>
             <p className="mt-4 text-center text-xs text-ink-mid">
               {kcalTarget
-                ? `Target ${kcalTarget.toLocaleString()} kcal/day from your age, weight, height & activity`
+                ? `Target ${kcalTarget.toLocaleString()} kcal/day for your goal: ${goalLabel(targets.goal)}`
                 : "Add your age, weight & height in Profile for a personal calorie target"}
               {conditionLabel && ` · tuned for ${conditionLabel}`}
             </p>

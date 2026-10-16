@@ -9,6 +9,8 @@ import { getExercises } from "../data/workoutExercises";
 import { PHASE_META } from "../types/cycle";
 import type { CyclePhaseKey } from "../types/cycle";
 import { useProfileData } from "../hooks/useProfileData";
+import { useTargets } from "../hooks/useTargets";
+import { goalLabel } from "../lib/goals";
 import { CycleBanner } from "../components/CycleBanner";
 import { type WorkoutLogEntry, loadWorkoutLog, saveWorkoutLog } from "../hooks/useWorkoutLog";
 
@@ -189,6 +191,7 @@ export function Workout() {
   const { entry, save, reset, needsSetup, needsMood } = useDailyWorkout();
   const { prefs } = useWorkoutPrefs();
   const { phase, cycleDay, cycleLength } = useProfileData();
+  const targets = useTargets();
   const [showSheet, setShowSheet] = useState(false);
   const [done, setDone] = useState<Record<string, boolean>>({});
 
@@ -295,6 +298,7 @@ export function Workout() {
           phase={phase}
           weeklyMode={prefs.weeklyMode}
           favouriteWorkouts={prefs.favouriteWorkouts}
+          suggestedTypes={targets.workout.suggestedTypes}
           initialStep={(needsMood ? 1 : 2) as 1 | 2}
           currentMood={entry.mood}
           onComplete={handleComplete}
@@ -386,6 +390,28 @@ export function Workout() {
           </button>
         </div>
       )}
+
+      {/* ── Goal + phase recommendation ──────────────────────────────────────── */}
+      <div className="rounded-card border border-primary/20 bg-gradient-to-r from-primary-pale to-white p-4 shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-base font-bold text-ink-dark">Today&apos;s recommendation</h2>
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${PHASE_BADGE_CLS[phase]}`}>
+            {PHASE_META[phase].emoji} {PHASE_META[phase].label} · {goalLabel(targets.goal)}
+          </span>
+        </div>
+        <p className="mt-2 font-semibold text-ink-dark">{targets.workout.focus}</p>
+        <p className="mt-1 text-sm text-ink-mid">
+          {targets.workout.minutes} min · <span className="capitalize">{targets.workout.intensity}</span> intensity ·{" "}
+          {targets.steps.toLocaleString()} steps · {targets.workout.sessionsPerWeek} workouts/week
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {targets.workout.suggestedTypes.map((t) => (
+            <span key={t} className="rounded-full border border-primary/30 bg-white px-2.5 py-0.5 text-xs font-medium text-primary">
+              {t}
+            </span>
+          ))}
+        </div>
+      </div>
 
       {/* ── Always-visible activity log ──────────────────────────────────────── */}
       <div className="rounded-card border border-border bg-white p-4 shadow-card">

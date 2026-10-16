@@ -8,7 +8,8 @@ import { PHASE_META } from "../types/cycle";
 import type { CyclePhaseKey } from "../types/cycle";
 import { useProfileData } from "../hooks/useProfileData";
 import { loadWorkoutLog } from "../hooks/useWorkoutLog";
-import { calorieTarget, loadStoredProfile, waterTargetL, workoutMinutesTarget } from "../lib/profileStore";
+import { useTargets } from "../hooks/useTargets";
+import { goalLabel } from "../lib/goals";
 import { loadLocalPlan, todayPlanIndex } from "../lib/dietPlanStore";
 
 const MEAL_TIME: Record<string, string> = {
@@ -54,12 +55,11 @@ export function Dashboard() {
   const todayLog = loadWorkoutLog();
   const totalBurned = todayLog.reduce((sum, e) => sum + e.calories, 0);
 
-  const profile = useMemo(loadStoredProfile, []);
+  const targets = useTargets();
+  const [showWhy, setShowWhy] = useState(false);
   const dietPlan = useMemo(loadLocalPlan, []);
   const planIdx = dietPlan ? todayPlanIndex(dietPlan) : null;
   const todayPlan = dietPlan && planIdx !== null ? dietPlan.plan[planIdx] : null;
-  const kcal = todayPlan?.total_calories ?? calorieTarget(profile);
-  const water = waterTargetL(profile);
 
   const phaseTip: Record<CyclePhaseKey, string> = {
     menstrual:  "Rest and nourish — your body is doing important work",
@@ -122,9 +122,68 @@ export function Dashboard() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard icon={<span>🔥</span>} value={kcal ? `${kcal.toLocaleString()} kcal` : "—"} label="Today's target" />
-        <StatCard icon={<span>💧</span>} value={water ? `${water}L` : "—"} label="Water goal" />
-        <StatCard icon={<span>⏱</span>} value={`${workoutMinutesTarget(profile)} min`} label="Workout today" />
+        <StatCard icon={<span>🔥</span>} value={targets.kcal ? `${targets.kcal.toLocaleString()} kcal` : "—"} label="Calorie target" />
+        <StatCard icon={<span>💧</span>} value={`${targets.waterL}L`} label="Water goal" />
+        <StatCard icon={<span>⏱</span>} value={`${targets.workout.minutes} min`} label="Workout today" />
+      </div>
+
+      <div className="rounded-card border border-border bg-white p-5 shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-lg font-bold text-ink-dark">Your plan for today</h2>
+          <Link to="/profile" className="rounded-full bg-primary-pale px-3 py-1 text-xs font-semibold text-primary hover:underline">
+            Goal: {goalLabel(targets.goal)}
+          </Link>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-input bg-brand-surface p-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-ink-soft">Eat</p>
+            {targets.kcal && targets.macros ? (
+              <>
+                <p className="mt-1 font-semibold text-ink-dark">{targets.kcal.toLocaleString()} kcal</p>
+                <p className="text-xs text-ink-mid">
+                  Protein {targets.macros.protein} g · Carbs {targets.macros.carbs} g · Fat {targets.macros.fat} g
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-sm text-ink-mid">
+                <Link to="/profile" className="font-semibold text-primary hover:underline">Add your age, weight &amp; height</Link>{" "}
+                for a personal calorie target
+              </p>
+            )}
+          </div>
+          <div className="rounded-input bg-brand-surface p-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-ink-soft">Drink</p>
+            <p className="mt-1 font-semibold text-ink-dark">{targets.waterL} litres of water</p>
+            <p className="text-xs text-ink-mid">≈ {Math.round(targets.waterL / 0.25)} glasses</p>
+          </div>
+          <div className="rounded-input bg-brand-surface p-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-ink-soft">Train</p>
+            <p className="mt-1 font-semibold text-ink-dark">
+              {targets.workout.minutes} min · <span className="capitalize">{targets.workout.intensity}</span> intensity
+            </p>
+            <p className="text-xs text-ink-mid">{targets.workout.focus}</p>
+          </div>
+          <div className="rounded-input bg-brand-surface p-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-ink-soft">Move</p>
+            <p className="mt-1 font-semibold text-ink-dark">{targets.steps.toLocaleString()} steps</p>
+            <p className="text-xs text-ink-mid">{targets.workout.sessionsPerWeek} workouts a week for your goal</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowWhy((v) => !v)}
+          className="mt-3 text-xs font-semibold text-primary hover:underline"
+        >
+          {showWhy ? "Hide" : "Why these numbers?"}
+        </button>
+        {showWhy && (
+          <ul className="mt-2 space-y-1 text-xs text-ink-mid">
+            {targets.why.map((w) => <li key={w}>• {w}</li>)}
+            <li className="pt-1 italic text-ink-soft">
+              Estimates for general wellness, not medical advice — check with your doctor, especially if you&apos;re pregnant or on medication.
+            </li>
+          </ul>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

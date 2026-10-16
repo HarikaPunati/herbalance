@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Check, Sparkles } from "lucide-react";
 import { saveStoredProfile } from "../lib/profileStore";
+import { GOALS, type GoalId } from "../lib/goals";
 import type { CyclePhaseKey } from "../types/cycle";
 import { PHASE_META } from "../types/cycle";
 
@@ -113,7 +114,7 @@ const phaseCardClass = (key: CyclePhaseKey, selected: boolean) => {
 export function Onboarding() {
   const [step, setStep] = useState(1);
   const [dir, setDir] = useState<"next" | "prev">("next");
-  const total = 5;
+  const total = 6;
 
   const [name, setName] = useState("");
   const [conditions, setConditions] = useState<string[]>([]);
@@ -123,7 +124,7 @@ export function Onboarding() {
   const [height, setHeight] = useState("");
   const [activity, setActivity] = useState("Moderately active");
   const [diet, setDiet] = useState("Omnivore");
-  const [goal, setGoal] = useState("Manage hormonal symptoms");
+  const [goal, setGoal] = useState<GoalId | null>(null);
   const [allergies, setAllergies] = useState("");
   const [cuisines, setCuisines] = useState<string[]>([]);
   const [fitness, setFitness] = useState<"Beginner" | "Intermediate" | "Advanced">("Intermediate");
@@ -167,7 +168,7 @@ export function Onboarding() {
       symptoms,
       last_period_date: lastPeriod || estimateLastPeriod(),
       cycle_length: cycleLen,
-      primary_goal: goal,
+      primary_goal: goal ?? "manage_symptoms",
       notes,
     });
     navigate("/dashboard");
@@ -238,6 +239,51 @@ export function Onboarding() {
 
             {step === 2 && (
               <div>
+                <h2 className="font-display text-xl font-bold text-ink-dark">What&apos;s your main goal?</h2>
+                <p className="mt-2 text-sm text-ink-mid">
+                  We&apos;ll set your calories, water, workouts and daily activity around it — and adjust them to your cycle.
+                </p>
+                <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {GOALS.map((g) => {
+                    const sel = goal === g.id;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => setGoal(g.id)}
+                        className={`relative flex items-start gap-3 rounded-card border p-4 text-left transition-all duration-150 ${
+                          sel
+                            ? "border-2 border-primary bg-primary-pale shadow-card"
+                            : "border border-primary/30 bg-white hover:shadow-card"
+                        }`}
+                      >
+                        <span className="text-2xl">{g.emoji}</span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-bold text-ink-dark">{g.label}</span>
+                          <span className="mt-0.5 block text-xs text-ink-mid">{g.desc}</span>
+                        </span>
+                        {sel && (
+                          <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white shadow">
+                            <Check className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  disabled={!goal}
+                  onClick={() => go(3)}
+                  className="btn-press mt-8 w-full rounded-btn bg-primary py-3 font-semibold text-white shadow-card hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Continue
+                </button>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div>
                 <h2 className="font-display text-xl font-bold text-ink-dark">
                   What has your doctor diagnosed you with?
                 </h2>
@@ -270,7 +316,7 @@ export function Onboarding() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => go(3)}
+                  onClick={() => go(4)}
                   className="btn-press mt-8 w-full rounded-btn bg-primary py-3 font-semibold text-white shadow-card hover:bg-primary-dark"
                 >
                   Continue
@@ -278,7 +324,7 @@ export function Onboarding() {
               </div>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <div>
                 <h2 className="font-display text-xl font-bold text-ink-dark">What do you experience day to day?</h2>
                 <p className="mt-2 text-sm text-ink-mid">Select everything that affects your life.</p>
@@ -312,7 +358,7 @@ export function Onboarding() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => go(4)}
+                  onClick={() => go(5)}
                   className="btn-press mt-8 w-full rounded-btn bg-primary py-3 font-semibold text-white shadow-card hover:bg-primary-dark"
                 >
                   Continue
@@ -320,7 +366,7 @@ export function Onboarding() {
               </div>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <div>
                 <h2 className="font-display text-xl font-bold text-ink-dark">Tell us a little about you</h2>
                 <p className="mt-2 text-sm text-ink-mid">
@@ -389,27 +435,6 @@ export function Onboarding() {
                       className="mt-1 w-full rounded-input border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
                     >
                       {["Omnivore", "Vegetarian", "Vegan", "Gluten-free", "Dairy-free", "Low carb"].map((o) => (
-                        <option key={o}>{o}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block text-sm">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
-                      Primary goal
-                    </span>
-                    <select
-                      value={goal}
-                      onChange={(e) => setGoal(e.target.value)}
-                      className="mt-1 w-full rounded-input border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
-                    >
-                      {[
-                        "Lose weight",
-                        "Manage hormonal symptoms",
-                        "Build strength",
-                        "Improve cycle regularity",
-                        "Boost energy",
-                        "Support fertility",
-                      ].map((o) => (
                         <option key={o}>{o}</option>
                       ))}
                     </select>
@@ -507,7 +532,7 @@ export function Onboarding() {
 
                 <button
                   type="button"
-                  onClick={() => go(5)}
+                  onClick={() => go(6)}
                   className="btn-press mt-8 w-full rounded-btn bg-primary py-3 font-semibold text-white shadow-card hover:bg-primary-dark"
                 >
                   Continue
@@ -515,7 +540,7 @@ export function Onboarding() {
               </div>
             )}
 
-            {step === 5 && (
+            {step === 6 && (
               <div>
                 <h2 className="font-display text-xl font-bold text-ink-dark">Where are you in your cycle?</h2>
                 <p className="mt-2 text-sm text-ink-mid">

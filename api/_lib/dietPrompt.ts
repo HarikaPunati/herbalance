@@ -1,4 +1,5 @@
 import { CONDITION_NAMES } from "../../src/lib/conditions.js";
+import { goalLabel, toGoalId, type GoalId } from "../../src/lib/goals.js";
 
 export type PhaseKey = "menstrual" | "follicular" | "ovulatory" | "luteal";
 
@@ -15,11 +16,12 @@ export type DietPlanRequest = {
   phase: PhaseKey;
   cuisines: string[];
   kcalTarget: number | null;
+  macros: { protein: number; carbs: number; fat: number } | null;
+  goal: GoalId;
   profile: {
     age?: string;
     dietary_preference?: string;
     food_allergies?: string;
-    primary_goal?: string;
     conditions?: string[];
     symptoms?: string[];
   };
@@ -36,16 +38,23 @@ export function parseRequest(body: unknown): DietPlanRequest | null {
   if (typeof b.phase !== "string" || !(b.phase in PHASE_LABEL)) return null;
   const p = (b.profile && typeof b.profile === "object" ? b.profile : {}) as Record<string, unknown>;
   const kcal = typeof b.kcalTarget === "number" && Number.isFinite(b.kcalTarget) ? b.kcalTarget : null;
+  const num = (v: unknown, lo: number, hi: number) =>
+    typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi ? Math.round(v) : null;
+  const m = (b.macros && typeof b.macros === "object" ? b.macros : {}) as Record<string, unknown>;
+  const protein = num(m.protein, 40, 300);
+  const carbs = num(m.carbs, 40, 600);
+  const fat = num(m.fat, 25, 160);
   return {
     days: b.days,
     phase: b.phase as PhaseKey,
     cuisines: clipList(b.cuisines),
     kcalTarget: kcal === null ? null : Math.min(3500, Math.max(1200, Math.round(kcal))),
+    macros: protein !== null && carbs !== null && fat !== null ? { protein, carbs, fat } : null,
+    goal: toGoalId(b.goal ?? p.primary_goal),
     profile: {
       age: clip(p.age, 3),
       dietary_preference: clip(p.dietary_preference, 30),
       food_allergies: clip(p.food_allergies, 200),
-      primary_goal: clip(p.primary_goal, 60),
       conditions: clipList(p.conditions).filter((c) => c in CONDITION_NAMES),
       symptoms: clipList(p.symptoms, 24),
     },
@@ -56,10 +65,12 @@ export function buildPrompt(req: DietPlanRequest): string {
   const { days, profile } = req;
   const phaseLabel = PHASE_LABEL[req.phase];
   const kcal = req.kcalTarget ?? 1650;
-  // Macro split ~30% protein / 45% carbs / 25% fat
-  const protein = Math.round((kcal * 0.3) / 4);
-  const carbs = Math.round((kcal * 0.45) / 4);
-  const fat = Math.round((kcal * 0.25) / 9);
+  // Goal-based macros from the browser's targets engine; otherwise ~30% protein / 45% carbs / 25% fat
+  const { protein, carbs, fat } = req.macros ?? {
+    protein: Math.round((kcal * 0.3) / 4),
+    carbs: Math.round((kcal * 0.45) / 4),
+    fat: Math.round((kcal * 0.25) / 9),
+  };
 
   const conditions = (profile.conditions ?? []).map((c) => CONDITION_NAMES[c]);
   const who = [
@@ -76,7 +87,7 @@ export function buildPrompt(req: DietPlanRequest): string {
     rules.push(`- Diet: strictly ${profile.dietary_preference} — every meal must comply`);
   }
   if (profile.food_allergies) rules.push(`- ALLERGIES — never include: ${profile.food_allergies}`);
-  if (profile.primary_goal) rules.push(`- Primary goal: ${profile.primary_goal}`);
+  rules.push(`- Her main goal: ${goalLabel(req.goal)} — the calorie and macro targets above are set for it`);
   if (profile.symptoms && profile.symptoms.length > 0) {
     rules.push(`- Help ease these symptoms where food can: ${profile.symptoms.join(", ")}`);
   }

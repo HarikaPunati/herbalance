@@ -11,8 +11,8 @@ const phaseWorkoutMap: Record<CyclePhaseKey, string[]> = {
   luteal:     ["Pilates", "Yoga", "Cardio", "Resistance Bands", "Swimming"],
 };
 
-function getSuggested(phase: CyclePhaseKey, favs: string[]): string {
-  const opts = phaseWorkoutMap[phase];
+function getSuggested(phase: CyclePhaseKey, favs: string[], goalTypes?: string[]): string {
+  const opts = goalTypes && goalTypes.length > 0 ? goalTypes : phaseWorkoutMap[phase];
   return opts.find(o => favs.includes(o)) ?? opts[0];
 }
 
@@ -50,20 +50,22 @@ type Props = {
   phase: CyclePhaseKey;
   weeklyMode: "suggested" | "daily";
   favouriteWorkouts: string[];
+  /** Goal- and phase-aware workout types, best first. Falls back to the phase list. */
+  suggestedTypes?: string[];
   initialStep: 1 | 2;
   currentMood: WorkoutIntensity | null;
   onComplete: (r: { mood: WorkoutIntensity; workoutType: string; location: WorkoutLocation; muscleFocus: string[] }) => void;
   onClose: () => void;
 };
 
-export function WorkoutBottomSheet({ phase, weeklyMode, favouriteWorkouts, initialStep, currentMood, onComplete, onClose }: Props) {
+export function WorkoutBottomSheet({ phase, weeklyMode, favouriteWorkouts, suggestedTypes, initialStep, currentMood, onComplete, onClose }: Props) {
   const [step, setStep] = useState<1 | 2 | 3>(initialStep);
   const [mood, setMood] = useState<WorkoutIntensity | null>(currentMood);
   const [workoutType, setWorkoutType] = useState<string | null>(null);
   const [location, setLocation] = useState<WorkoutLocation | null>(null);
   const [muscles, setMuscles] = useState<string[]>([]);
 
-  const suggested = getSuggested(phase, favouriteWorkouts);
+  const suggested = getSuggested(phase, favouriteWorkouts, suggestedTypes);
   const phaseName = phase.charAt(0).toUpperCase() + phase.slice(1);
 
   const toggleMuscle = (m: string) =>
@@ -137,7 +139,7 @@ export function WorkoutBottomSheet({ phase, weeklyMode, favouriteWorkouts, initi
               {weeklyMode === "suggested" && (
                 <div className="mt-4 rounded-card border border-primary/25 bg-primary/5 p-3">
                   <p className="text-sm text-ink-dark">
-                    Based on your <span className="font-semibold">{phaseName}</span> phase:{" "}
+                    Based on your goal and <span className="font-semibold">{phaseName}</span> phase:{" "}
                     <span className="font-bold text-primary">{suggested}</span> is a great fit today 💙
                   </p>
                   <div className="mt-3 flex gap-2">

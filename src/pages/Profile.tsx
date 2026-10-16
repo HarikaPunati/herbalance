@@ -4,6 +4,7 @@ import { ChevronDown, Pencil, Check } from "lucide-react";
 import { PhaseBadge } from "../components/PhaseBadge";
 import { useWorkoutPrefs } from "../hooks/useWorkoutPrefs";
 import { supabase, getOrCreateUserId } from "../lib/supabase";
+import { GOALS, toGoalId, type GoalId } from "../lib/goals";
 import type { CyclePhaseKey } from "../types/cycle";
 import type { ReactNode } from "react";
 
@@ -70,6 +71,7 @@ type ProfileData = {
   symptoms:             string[];
   last_period_date:     string;
   cycle_length:         string;
+  primary_goal:         GoalId;
 };
 
 const PROFILE_KEY = "herbalance_profile";
@@ -91,6 +93,7 @@ const DEFAULT_PROFILE: ProfileData = {
   symptoms:            [],
   last_period_date:    "",
   cycle_length:        "28",
+  primary_goal:        "manage_symptoms",
 };
 
 function loadProfile(): ProfileData {
@@ -102,7 +105,7 @@ function loadProfile(): ProfileData {
       const wp = wpRaw ? JSON.parse(wpRaw) : {};
       saved.favourite_workouts = wp.favouriteWorkouts ?? [];
     }
-    return { ...DEFAULT_PROFILE, ...saved };
+    return { ...DEFAULT_PROFILE, ...saved, primary_goal: toGoalId(saved.primary_goal) };
   } catch { return DEFAULT_PROFILE; }
 }
 
@@ -366,6 +369,58 @@ export function Profile() {
 
       {/* ── Accordion sections ──────────────────────────────────────────────── */}
       <div className="space-y-3">
+
+        {/* MY GOAL */}
+        <SectionCard
+          title="My Goal"
+          open={open === "goal"}
+          editing={isEditing("goal")}
+          onToggle={() => toggleSection("goal")}
+          onEdit={() => startEdit("goal")}
+        >
+          {!isEditing("goal") ? (
+            (() => {
+              const g = GOALS.find((x) => x.id === profile.primary_goal)!;
+              return (
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">{g.emoji}</span>
+                  <div>
+                    <p className="font-semibold text-ink-dark">{g.label}</p>
+                    <p className="text-xs text-ink-mid">{g.desc}</p>
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <>
+              <p className="mb-3 text-xs text-ink-mid">
+                Changing your goal updates your calories, water, workouts and step target straight away.
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {GOALS.map((g) => {
+                  const sel = draft.primary_goal === g.id;
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => patchDraft("primary_goal", g.id)}
+                      className={`flex items-start gap-3 rounded-card border p-3 text-left transition-all duration-150 ${
+                        sel ? "border-2 border-primary bg-primary-pale shadow-card" : "border border-primary/30 bg-white hover:shadow-card"
+                      }`}
+                    >
+                      <span className="text-xl">{g.emoji}</span>
+                      <span>
+                        <span className="block text-sm font-bold text-ink-dark">{g.label}</span>
+                        <span className="block text-xs text-ink-mid">{g.desc}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <EditActions onSave={saveSection} onCancel={cancelEdit} />
+            </>
+          )}
+        </SectionCard>
 
         {/* MY CONDITIONS */}
         <SectionCard
