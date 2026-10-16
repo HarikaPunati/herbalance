@@ -1,4 +1,4 @@
-import { supabase, getOrCreateUserId } from "./supabase";
+import { pushProfile } from "./cloudSync";
 
 export const PROFILE_KEY = "herbalance_profile";
 const WORKOUT_PREFS_KEY = "herbalance_workout_prefs";
@@ -44,7 +44,7 @@ export function loadStoredProfile(): Partial<StoredProfile> {
   }
 }
 
-/** Saves the full profile locally, mirrors cuisines/workouts into their prefs keys, and syncs to Supabase if configured. */
+/** Saves the full profile locally, mirrors cuisines/workouts into their prefs keys, and syncs to the user's cloud profile when signed in. */
 export async function saveStoredProfile(p: StoredProfile): Promise<void> {
   localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
   localStorage.setItem(CUISINE_PREFS_KEY, JSON.stringify({ cuisines: p.cuisine_preferences }));
@@ -52,31 +52,9 @@ export async function saveStoredProfile(p: StoredProfile): Promise<void> {
   const wp = wpRaw ? JSON.parse(wpRaw) : { weeklyMode: "suggested" };
   localStorage.setItem(WORKOUT_PREFS_KEY, JSON.stringify({ ...wp, favouriteWorkouts: p.favourite_workouts }));
 
-  if (!supabase) return;
   try {
-    await supabase.from("profiles").upsert(
-      {
-        user_id: getOrCreateUserId(),
-        full_name: p.full_name || null,
-        age: p.age ? parseInt(p.age, 10) : null,
-        weight_kg: p.weight_kg ? parseFloat(p.weight_kg) : null,
-        height_cm: p.height_cm ? parseFloat(p.height_cm) : null,
-        activity_level: p.activity_level,
-        dietary_preference: p.dietary_preference,
-        cuisine_preferences: p.cuisine_preferences,
-        food_allergies: p.food_allergies || null,
-        fitness_level: p.fitness_level,
-        workout_location: p.workout_location,
-        favourite_workouts: p.favourite_workouts,
-        conditions: p.conditions,
-        symptoms: p.symptoms,
-        last_period_date: p.last_period_date || null,
-        cycle_length: p.cycle_length,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" },
-    );
+    await pushProfile(p);
   } catch {
-    // Persistence is best-effort — localStorage already has the profile
+    // Saved locally; the next profile save retries the cloud copy
   }
 }

@@ -13,6 +13,8 @@ const PHASE_LABEL: Record<PhaseKey, string> = {
 /** What the browser sends. Everything is re-validated here — the server never trusts it as-is. */
 export type DietPlanRequest = {
   days: 7 | 14;
+  /** YYYY-MM-DD of plan day 1, in the user's local time */
+  startDate: string;
   phase: PhaseKey;
   cuisines: string[];
   kcalTarget: number | null;
@@ -46,6 +48,9 @@ export function parseRequest(body: unknown): DietPlanRequest | null {
   const fat = num(m.fat, 25, 160);
   return {
     days: b.days,
+    startDate: typeof b.startDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.startDate)
+      ? b.startDate
+      : new Date().toISOString().slice(0, 10),
     phase: b.phase as PhaseKey,
     cuisines: clipList(b.cuisines),
     kcalTarget: kcal === null ? null : Math.min(3500, Math.max(1200, Math.round(kcal))),

@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { ChevronDown, Pencil, Check } from "lucide-react";
 import { PhaseBadge } from "../components/PhaseBadge";
 import { useWorkoutPrefs } from "../hooks/useWorkoutPrefs";
-import { supabase, getOrCreateUserId } from "../lib/supabase";
+import { pushProfile } from "../lib/cloudSync";
+import { useAuth } from "../lib/auth";
 import { GOALS, toGoalId, type GoalId } from "../lib/goals";
 import type { CyclePhaseKey } from "../types/cycle";
 import type { ReactNode } from "react";
@@ -213,6 +214,7 @@ function Pill({ children, selected, onClick }: { children: ReactNode; selected: 
 // ─── Profile ───────────────────────────────────────────────────────────────────
 
 export function Profile() {
+  const { session, localMode, signOut } = useAuth();
   const [profile, setProfile] = useState<ProfileData>(loadProfile);
   const [draft,   setDraft]   = useState<ProfileData>(profile);
   const [open,    setOpen]    = useState<string | null>(null);
@@ -282,33 +284,12 @@ export function Profile() {
     setEditing(null);
     showToast("success");
 
-    if (supabase) {
-      try {
-        const { error } = await supabase.from("profiles").upsert({
-          user_id:             getOrCreateUserId(),
-          full_name:           draft.full_name,
-          age:                 draft.age        ? parseInt(draft.age, 10)        : null,
-          weight_kg:           draft.weight_kg  ? parseFloat(draft.weight_kg)    : null,
-          height_cm:           draft.height_cm  ? parseFloat(draft.height_cm)    : null,
-          activity_level:      draft.activity_level,
-          dietary_preference:  draft.dietary_preference,
-          cuisine_preferences: draft.cuisine_preferences,
-          food_allergies:      draft.food_allergies,
-          fitness_level:       draft.fitness_level,
-          workout_location:    draft.workout_location,
-          favourite_workouts:  draft.favourite_workouts,
-          conditions:          draft.conditions,
-          symptoms:            draft.symptoms,
-          last_period_date:    draft.last_period_date || null,
-          cycle_length:        draft.cycle_length,
-          updated_at:          new Date().toISOString(),
-        }, { onConflict: "user_id" });
-        if (error) throw error;
-      } catch {
-        setProfile(prev);
-        persistProfile(prev);
-        showToast("error");
-      }
+    try {
+      await pushProfile(draft);
+    } catch {
+      setProfile(prev);
+      persistProfile(prev);
+      showToast("error");
     }
   }
 
@@ -319,6 +300,22 @@ export function Profile() {
   return (
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold text-ink-dark">Profile</h1>
+
+      {!localMode && session && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-white px-4 py-3 shadow-card">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-ink-soft">Signed in as</p>
+            <p className="truncate text-sm font-semibold text-ink-dark">{session.user.email}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="rounded-btn border border-border px-4 py-2 text-sm font-semibold text-ink-mid hover:bg-brand-surface"
+          >
+            Sign out
+          </button>
+        </div>
+      )}
 
       {/* Incomplete profile banner */}
       {isIncomplete && (

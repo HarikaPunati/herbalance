@@ -8,12 +8,17 @@ import { Grocery } from "./pages/Grocery";
 import { Supplements } from "./pages/Supplements";
 import { Profile } from "./pages/Profile";
 import { Cycle } from "./pages/Cycle";
+import { Login } from "./pages/Login";
+import { ResetPassword } from "./pages/ResetPassword";
+import { RequireAuth } from "./lib/auth";
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/onboarding" element={<Onboarding />} />
-      <Route element={<AppLayout />}>
+      <Route path="/login" element={<Login />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} />
+      <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/diet" element={<Diet />} />

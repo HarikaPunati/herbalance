@@ -19,7 +19,10 @@ function localApi(): Plugin {
         const response = await dietPlan(
           new Request("http://localhost/api/diet-plan", {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            headers: {
+              "content-type": "application/json",
+              ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
+            },
             body: Buffer.concat(chunks).toString("utf8"),
           }),
         );
@@ -34,7 +37,9 @@ function localApi(): Plugin {
 export default defineConfig(({ mode }) => {
   // Load all env vars (not just VITE_-prefixed) so the local API sees ANTHROPIC_API_KEY
   const env = loadEnv(mode, process.cwd(), "");
-  if (env.ANTHROPIC_API_KEY) process.env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
+  for (const k of ["ANTHROPIC_API_KEY", "VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY", "DIET_PLANS_PER_WEEK"]) {
+    if (env[k]) process.env[k] = env[k];
+  }
 
   return {
     plugins: [react(), localApi()],

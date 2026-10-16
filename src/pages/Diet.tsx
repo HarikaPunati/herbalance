@@ -8,7 +8,7 @@ import { PHASE_META } from "../types/cycle";
 import type { CyclePhaseKey } from "../types/cycle";
 import { useCuisinePrefs } from "../hooks/useCuisinePrefs";
 import { useProfileData } from "../hooks/useProfileData";
-import { supabase, getOrCreateUserId } from "../lib/supabase";
+import { authHeader } from "../lib/cloudSync";
 import { CONDITION_NAMES, loadStoredProfile } from "../lib/profileStore";
 import { useTargets } from "../hooks/useTargets";
 import { goalLabel } from "../lib/goals";
@@ -68,60 +68,34 @@ function mealToCardProps(meal: MealItem): MealCardProps {
   };
 }
 
-// ─── Supabase persistence ─────────────────────────────────────────────────────
+// ─── Persistence ──────────────────────────────────────────────────────────────
+// The latest plan is pulled from the cloud at sign-in (lib/cloudSync) and the server
+// saves each new plan to the database, so this page only reads/writes the local copy.
 
 async function loadSavedPlan(): Promise<StoredDietPlan | null> {
-  const local = loadLocalPlan();
-  if (local || !supabase) return local;
-  try {
-    const userId = getOrCreateUserId();
-    const { data, error } = await supabase
-      .from("diet_plans")
-      .select("plan_data, plan_duration, cuisines, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-    if (error || !data) return null;
-    const restored: StoredDietPlan = {
-      plan: data.plan_data as DayPlan[],
-      duration: data.plan_duration as number,
-      cuisines: (data.cuisines as string[]) ?? [],
-      startDate: String(data.created_at).slice(0, 10),
-    };
-    saveLocalPlan(restored.plan, restored.duration, restored.cuisines, restored.startDate);
-    return restored;
-  } catch {
-    return null;
-  }
+  return loadLocalPlan();
 }
 
 async function persistPlan(plan: DayPlan[], duration: number, cuisines: string[]): Promise<void> {
   saveLocalPlan(plan, duration, cuisines);
-  if (!supabase) return;
-  try {
-    const userId = getOrCreateUserId();
-    await supabase.from("diet_plans").insert({
-      user_id: userId,
-      plan_duration: duration,
-      plan_data: plan,
-      cuisines,
-    });
-  } catch {
-    // Persistence is best-effort — app still works without it
-  }
 }
 
 // ─── AI call ─────────────────────────────────────────────────────────────────
 // The prompt is built server-side in api/diet-plan.ts, which also holds the API key.
 
+function localISODate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 async function fetchDietPlan(days: 7 | 14, phase: CyclePhaseKey, cuisines: string[], targets: DailyTargets): Promise<DayPlan[]> {
   const profile = loadStoredProfile();
   const res = await fetch("/api/diet-plan", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(await authHeader()) },
     body: JSON.stringify({
       days,
+      startDate: localISODate(),
       phase,
       cuisines,
       kcalTarget: targets.kcal,

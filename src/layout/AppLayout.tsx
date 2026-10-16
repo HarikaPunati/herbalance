@@ -1,6 +1,7 @@
 import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   ChevronLeft,
+  LogOut,
   ChevronRight,
   Dumbbell,
   Home,
@@ -16,6 +17,7 @@ import { useState } from "react";
 import { PHASE_META } from "../types/cycle";
 import { useProfileData } from "../hooks/useProfileData";
 import { hasProfile } from "../lib/profileStore";
+import { useAuth } from "../lib/auth";
 
 const nav = [
   { to: "/dashboard", label: "Home", icon: Home },
@@ -47,6 +49,7 @@ export function AppLayout() {
   const [drawer, setDrawer] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { userName, initials, cycleDay, phase } = useProfileData();
+  const { localMode, syncError, signOut } = useAuth();
   const phaseLabel = PHASE_META[phase].label;
 
   const hideChrome = location.pathname.startsWith("/onboarding");
@@ -121,6 +124,15 @@ export function AppLayout() {
           <p className="font-semibold text-[#5B21B6]">You are allowed to rest.</p>
           <p className="mt-1 text-ink-mid">Small steps still move you forward.</p>
         </div>
+        {!localMode && (
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="mt-3 flex items-center gap-2 rounded-btn px-3 py-2 text-sm font-medium text-ink-mid hover:bg-brand-surface"
+          >
+            <LogOut className="h-4 w-4" /> Sign out
+          </button>
+        )}
       </aside>
 
       {/* Mobile top bar */}
@@ -176,6 +188,15 @@ export function AppLayout() {
                 </NavLink>
               ))}
             </nav>
+            {!localMode && (
+              <button
+                type="button"
+                onClick={() => { setDrawer(false); void signOut(); }}
+                className="mt-auto flex items-center gap-3 rounded-btn px-3 py-2.5 text-sm font-medium text-ink-mid hover:bg-brand-surface"
+              >
+                <LogOut className="h-5 w-5" /> Sign out
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -194,6 +215,9 @@ export function AppLayout() {
 
       <main className={`page-enter transition-[padding] duration-300 ${sidebarOpen ? "md:pl-[220px]" : "md:pl-0"}`}>
         <div className="mx-auto max-w-content px-4 pb-28 pt-6 md:pb-10 md:pt-8">
+          {syncError && (
+            <p className="mb-4 rounded-card border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{syncError}</p>
+          )}
           <Outlet />
         </div>
       </main>
