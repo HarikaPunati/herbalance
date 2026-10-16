@@ -18,7 +18,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // When Supabase is configured, only signed-in users can generate plans.
-  const sbUrl = process.env.VITE_SUPABASE_URL;
+  const sbUrl = process.env.VITE_SUPABASE_URL?.trim().replace(/\/(rest|auth)\/v1\/?$/, "").replace(/\/+$/, "");
   const sbKey = process.env.VITE_SUPABASE_ANON_KEY;
   let db: SupabaseClient | null = null;
   let userId: string | null = null;

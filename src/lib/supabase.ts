@@ -1,6 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+// Accept the Project URL even if it was copied with an API path or trailing slash
+// (Supabase's API page shows "https://<ref>.supabase.co/rest/v1/").
+export const normalizeSupabaseUrl = (u: string | undefined) =>
+  u?.trim().replace(/\/(rest|auth)\/v1\/?$/, "").replace(/\/+$/, "") || undefined;
+
+const url = normalizeSupabaseUrl(import.meta.env.VITE_SUPABASE_URL as string | undefined);
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 // Client is null when env vars are not set — all persistence calls are no-ops
