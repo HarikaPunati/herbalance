@@ -124,6 +124,10 @@ export function AppLayout() {
           <p className="font-semibold text-[#5B21B6]">You are allowed to rest.</p>
           <p className="mt-1 text-ink-mid">Small steps still move you forward.</p>
         </div>
+        <p className="mt-3 px-3 text-[11px] text-ink-soft">
+          <NavLink to="/privacy" className="hover:underline">Privacy</NavLink> ·{" "}
+          <NavLink to="/disclaimer" className="hover:underline">Health disclaimer</NavLink>
+        </p>
         {!localMode && (
           <button
             type="button"

@@ -233,7 +233,12 @@ export function Onboarding() {
                 >
                   Let&apos;s begin →
                 </button>
-                <p className="mt-4 text-xs text-ink-soft">Your data is private and never shared.</p>
+                <p className="mt-4 text-xs text-ink-soft">
+                  By continuing you agree to our{" "}
+                  <Link to="/privacy" className="underline hover:text-primary">Privacy Policy</Link> and confirm you&apos;ve read the{" "}
+                  <Link to="/disclaimer" className="underline hover:text-primary">Health Disclaimer</Link> — HerBalance is
+                  general wellness guidance, not medical advice.
+                </p>
               </div>
             )}
 

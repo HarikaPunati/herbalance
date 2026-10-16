@@ -302,6 +302,10 @@ export function Dashboard() {
         </div>
       </div>
 
+      <p className="text-center text-xs text-ink-soft">
+        General wellness guidance, not medical advice ·{" "}
+        <Link to="/disclaimer" className="hover:underline">Health disclaimer</Link>
+      </p>
     </div>
   );
 }

@@ -13,6 +13,8 @@ type AuthState = {
   localMode: boolean;
   syncError: string | null;
   signOut: () => Promise<void>;
+  /** Permanently deletes the account and all its cloud data (or this device's data in local mode). */
+  deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -59,8 +61,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   };
 
+  const deleteAccount = async () => {
+    if (supabase) {
+      const { error } = await supabase.rpc("delete_my_account");
+      if (error) throw new Error(error.message);
+      await supabase.auth.signOut();
+    }
+    clearLocalUserData();
+    setSession(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ ready, session, localMode: !supabase, syncError, signOut }}>
+    <AuthContext.Provider value={{ ready, session, localMode: !supabase, syncError, signOut, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

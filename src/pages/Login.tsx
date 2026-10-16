@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { hasProfile } from "../lib/profileStore";
@@ -17,7 +17,10 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const location = useLocation();
+  const [notice, setNotice] = useState<string | null>(
+    (location.state as { deleted?: boolean } | null)?.deleted ? "Your account and all its data have been deleted." : null,
+  );
 
   if (localMode) return <Navigate to="/dashboard" replace />;
   if (ready && session) return <Navigate to={hasProfile() ? "/dashboard" : "/onboarding"} replace />;
@@ -140,6 +143,9 @@ export function Login() {
         </div>
         <p className="mt-6 text-center text-xs text-ink-soft">
           Your data is private to your account. HerBalance offers general wellness guidance, not medical advice.
+          <br />
+          <Link to="/privacy" className="hover:underline">Privacy Policy</Link> ·{" "}
+          <Link to="/disclaimer" className="hover:underline">Health Disclaimer</Link>
         </p>
       </div>
     </div>

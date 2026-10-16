@@ -5,6 +5,8 @@ import { PhaseBadge } from "../components/PhaseBadge";
 import { useWorkoutPrefs } from "../hooks/useWorkoutPrefs";
 import { pushProfile } from "../lib/cloudSync";
 import { useAuth } from "../lib/auth";
+import { supabase } from "../lib/supabase";
+import { Link, useNavigate } from "react-router-dom";
 import { GOALS, toGoalId, type GoalId } from "../lib/goals";
 import type { CyclePhaseKey } from "../types/cycle";
 import type { ReactNode } from "react";
@@ -214,7 +216,33 @@ function Pill({ children, selected, onClick }: { children: ReactNode; selected: 
 // ─── Profile ───────────────────────────────────────────────────────────────────
 
 export function Profile() {
-  const { session, localMode, signOut } = useAuth();
+  const { session, localMode, signOut, deleteAccount } = useAuth();
+  const navigate = useNavigate();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteText, setDeleteText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function sendPasswordReset() {
+    if (!supabase || !session?.user.email) return;
+    const { error } = await supabase.auth.resetPasswordForEmail(session.user.email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setNotice(error ? `Couldn't send the email: ${error.message}` : `We sent a password reset link to ${session.user.email}.`);
+  }
+
+  async function confirmDelete() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount();
+      navigate(localMode ? "/onboarding" : "/login", { replace: true, state: { deleted: true } });
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
+      setDeleting(false);
+    }
+  }
   const [profile, setProfile] = useState<ProfileData>(loadProfile);
   const [draft,   setDraft]   = useState<ProfileData>(profile);
   const [open,    setOpen]    = useState<string | null>(null);
@@ -884,15 +912,69 @@ export function Profile() {
             <input type="checkbox" checked={theme} onChange={() => setTheme((v) => !v)} disabled className="h-5 w-5 rounded border-border text-primary" />
           </label>
         </div>
-        <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-4">
-          <button type="button" className="rounded-btn border border-border px-4 py-2 text-sm font-semibold text-ink-dark hover:bg-brand-surface btn-press">
-            Change password
-          </button>
-          <button type="button" className="rounded-btn border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 btn-press">
-            Log out
-          </button>
-        </div>
+        {!localMode && (
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-4">
+            <button type="button" onClick={() => void sendPasswordReset()} className="rounded-btn border border-border px-4 py-2 text-sm font-semibold text-ink-dark hover:bg-brand-surface btn-press">
+              Change password
+            </button>
+            <button type="button" onClick={() => void signOut()} className="rounded-btn border border-border px-4 py-2 text-sm font-semibold text-ink-dark hover:bg-brand-surface btn-press">
+              Log out
+            </button>
+          </div>
+        )}
+        {notice && <p className="mt-3 text-sm text-ink-mid">{notice}</p>}
       </div>
+
+      {/* ── Privacy & data ─────────────────────────────────────────────────── */}
+      <div className="rounded-card border border-rose-200 bg-white p-5 shadow-card">
+        <h2 className="font-display text-base font-bold text-ink-dark">Privacy &amp; your data</h2>
+        <p className="mt-1 text-sm text-ink-mid">
+          Read how we handle your information in our{" "}
+          <Link to="/privacy" className="font-semibold text-primary hover:underline">Privacy Policy</Link> and{" "}
+          <Link to="/disclaimer" className="font-semibold text-primary hover:underline">Health Disclaimer</Link>.
+        </p>
+        <button
+          type="button"
+          onClick={() => { setDeleteOpen(true); setDeleteText(""); setDeleteError(null); }}
+          className="mt-4 rounded-btn border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 btn-press"
+        >
+          {localMode ? "Delete my data from this device" : "Delete my account"}
+        </button>
+      </div>
+
+      {deleteOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !deleting && setDeleteOpen(false)} />
+          <div className="relative w-full max-w-[400px] rounded-[20px] bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.2)]">
+            <h2 className="font-display text-lg font-bold text-ink-dark">Delete your account?</h2>
+            <p className="mt-2 text-sm text-ink-mid">
+              This permanently deletes your account, profile, meal plans and workout history.{" "}
+              <strong className="text-ink-dark">It can&apos;t be undone.</strong>
+            </p>
+            <label className="mt-4 block">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-ink-soft">Type DELETE to confirm</span>
+              <input
+                value={deleteText}
+                onChange={(e) => setDeleteText(e.target.value)}
+                autoFocus
+                className="mt-1 w-full rounded-[10px] border border-border px-3 py-2.5 text-sm outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-200"
+              />
+            </label>
+            {deleteError && <p className="mt-3 rounded-card bg-rose-50 px-3 py-2 text-sm text-rose-700">{deleteError}</p>}
+            <div className="mt-5 flex gap-3">
+              <button type="button" disabled={deleting} onClick={() => setDeleteOpen(false)}
+                className="flex-1 rounded-btn border border-border py-2.5 text-sm font-semibold text-ink-mid hover:bg-brand-surface">
+                Cancel
+              </button>
+              <button type="button" disabled={deleteText !== "DELETE" || deleting} onClick={() => void confirmDelete()}
+                className="flex-1 rounded-btn bg-rose-600 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40">
+                {deleting ? "Deleting…" : "Delete forever"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* ── Toast ──────────────────────────────────────────────────────────── */}
       {toast && createPortal(

@@ -1,5 +1,6 @@
 -- HerBalance database schema.
 -- Run once in Supabase → SQL Editor → New query → paste → Run.
+-- Then also run 002_delete_account.sql (lets users delete their own account).
 -- Every table is locked down with row-level security (RLS): a signed-in user can only
 -- read and write their own rows, and anonymous visitors can't read anything.
 

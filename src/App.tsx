@@ -10,6 +10,7 @@ import { Profile } from "./pages/Profile";
 import { Cycle } from "./pages/Cycle";
 import { Login } from "./pages/Login";
 import { ResetPassword } from "./pages/ResetPassword";
+import { HealthDisclaimer, PrivacyPolicy } from "./pages/Legal";
 import { RequireAuth } from "./lib/auth";
 
 export default function App() {
@@ -17,6 +18,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/disclaimer" element={<HealthDisclaimer />} />
       <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
