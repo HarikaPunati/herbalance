@@ -342,7 +342,7 @@ export function Diet() {
 
           {generating && (
             <p className="animate-pulse text-center text-xs text-ink-soft">
-              Claude is crafting {duration === "14" ? "14" : "7"} days of unique, hormone-friendly meals — this takes about 30–60 seconds.
+              Claude is crafting {duration === "14" ? "14" : "7"} days of unique, hormone-friendly meals — this takes about 1–2 minutes.
             </p>
           )}
         </div>

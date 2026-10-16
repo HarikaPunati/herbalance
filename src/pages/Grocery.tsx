@@ -3,53 +3,8 @@ import { Link } from "react-router-dom";
 import { GroceryItem } from "../components/GroceryItem";
 import { ProgressBar } from "../components/ProgressBar";
 import { loadLocalPlan, todayPlanIndex } from "../lib/dietPlanStore";
-
-type Item = { name: string; note?: string; qty: string };
-type Cat = { label: string; tone: string; items: Item[] };
-
-// Checked in order — first match wins, so specific words (e.g. "coconut milk") come before generic ones.
-const CATEGORIES: { label: string; tone: string; words: string[] }[] = [
-  { label: "🍵 Drinks & Teas", tone: "bg-teal-100 text-teal-900", words: ["tea", "coffee", "matcha", "kombucha"] },
-  { label: "🥛 Dairy/Alternatives", tone: "bg-sky-100 text-sky-900", words: ["milk", "yogurt", "yoghurt", "curd", "cheese", "paneer", "feta", "butter", "ghee", "kefir", "cream", "labneh"] },
-  { label: "🥩 Proteins", tone: "bg-rose-100 text-rose-800", words: ["chicken", "salmon", "fish", "tuna", "cod", "mackerel", "sardine", "prawn", "shrimp", "egg", "tofu", "tempeh", "beef", "lamb", "turkey", "pork", "edamame", "protein powder", "seitan"] },
-  { label: "🫘 Legumes", tone: "bg-lime-100 text-lime-900", words: ["lentil", "dal", "chickpea", "bean", "chana", "moong", "rajma", "hummus", "pea"] },
-  { label: "🌰 Nuts & Seeds", tone: "bg-orange-100 text-orange-900", words: ["almond", "walnut", "cashew", "pistachio", "peanut", "pecan", "seed", "flax", "chia", "nut butter", "tahini", "nuts"] },
-  { label: "🌾 Grains", tone: "bg-yellow-100 text-yellow-900", words: ["oat", "quinoa", "rice", "bread", "tortilla", "pasta", "noodle", "millet", "barley", "buckwheat", "couscous", "bulgur", "roti", "flour", "poha", "dosa", "idli", "wrap", "cracker"] },
-  { label: "🍎 Fruits", tone: "bg-amber-100 text-amber-900", words: ["berry", "berries", "apple", "banana", "orange", "lemon", "lime", "mango", "pear", "kiwi", "pomegranate", "grape", "cherry", "date", "fig", "papaya", "pineapple", "peach", "plum", "melon", "avocado"] },
-  { label: "🥦 Vegetables", tone: "bg-emerald-100 text-emerald-800", words: ["spinach", "kale", "broccoli", "carrot", "pepper", "tomato", "cucumber", "onion", "garlic", "ginger", "zucchini", "courgette", "cauliflower", "cabbage", "lettuce", "greens", "arugula", "rocket", "mushroom", "beet", "sweet potato", "potato", "squash", "pumpkin", "asparagus", "celery", "eggplant", "aubergine", "okra", "radish", "leek", "scallion", "herb", "cilantro", "coriander", "parsley", "basil", "mint", "dill", "bok choy", "sprout"] },
-];
-const PANTRY = { label: "🫙 Pantry Staples", tone: "bg-stone-100 text-stone-800" };
-
-function categorise(ingredient: string): { label: string; tone: string } {
-  const s = ingredient.toLowerCase();
-  return CATEGORIES.find((c) => c.words.some((w) => s.includes(w))) ?? PANTRY;
-}
-
-function buildList(days: { meals: { ingredients: string[] }[] }[]): Cat[] {
-  const counts = new Map<string, { name: string; n: number }>();
-  for (const day of days) {
-    for (const meal of day.meals) {
-      for (const raw of meal.ingredients) {
-        const name = raw.trim();
-        if (!name) continue;
-        const key = name.toLowerCase();
-        const cur = counts.get(key);
-        if (cur) cur.n += 1;
-        else counts.set(key, { name: name.charAt(0).toUpperCase() + name.slice(1), n: 1 });
-      }
-    }
-  }
-  const order = [...CATEGORIES.map((c) => c.label), PANTRY.label];
-  const cats = new Map<string, Cat>();
-  for (const { name, n } of counts.values()) {
-    const c = categorise(name);
-    if (!cats.has(c.label)) cats.set(c.label, { label: c.label, tone: c.tone, items: [] });
-    cats.get(c.label)!.items.push({ name, qty: n > 1 ? `×${n} meals` : "" });
-  }
-  return [...cats.values()]
-    .sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label))
-    .map((c) => ({ ...c, items: c.items.sort((a, b) => a.name.localeCompare(b.name)) }));
-}
+import { buildGroceryList } from "../lib/groceryList";
+import type { GroceryCategory } from "../lib/groceryList";
 
 const CHECKED_KEY = "herbalance_grocery_checked";
 
@@ -67,11 +22,11 @@ export function Grocery() {
   const [week, setWeek] = useState<"this" | "next">("this");
 
   const { data, rangeLabel } = useMemo(() => {
-    if (!dietPlan) return { data: [] as Cat[], rangeLabel: "" };
+    if (!dietPlan) return { data: [] as GroceryCategory[], rangeLabel: "" };
     const from = (todayPlanIndex(dietPlan) ?? 0) + (week === "next" ? 7 : 0);
     const days = dietPlan.plan.slice(from, from + 7);
     const label = days.length > 0 ? `Days ${from + 1}–${from + days.length} of your ${dietPlan.plan.length}-day meal plan` : "";
-    return { data: buildList(days), rangeLabel: label };
+    return { data: buildGroceryList(days), rangeLabel: label };
   }, [dietPlan, week]);
 
   const scope = `${dietPlan?.startDate ?? ""}:${week}`;
