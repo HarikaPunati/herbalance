@@ -4,6 +4,7 @@ import { GroceryItem } from "../components/GroceryItem";
 import { ProgressBar } from "../components/ProgressBar";
 import { loadLocalPlan, todayPlanIndex } from "../lib/dietPlanStore";
 import { buildGroceryList } from "../lib/groceryList";
+import { copyText, downloadGroceryPdf, groceryListText, shareText } from "../lib/groceryExport";
 import type { GroceryCategory } from "../lib/groceryList";
 
 const CHECKED_KEY = "herbalance_grocery_checked";
@@ -47,11 +48,37 @@ export function Grocery() {
     localStorage.setItem(CHECKED_KEY, JSON.stringify(next));
   };
 
-  const copy = () => {
-    const text = data
-      .map((c) => `${c.label}\n${c.items.map((i) => `- ${i.name}${i.qty ? ` (${i.qty})` : ""}`).join("\n")}`)
-      .join("\n\n");
-    void navigator.clipboard.writeText(text);
+  const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const flash = (text: string, ok = true) => {
+    setStatus({ text, ok });
+    window.setTimeout(() => setStatus(null), 3000);
+  };
+
+  const copy = async () => {
+    const ok = await copyText(groceryListText(data, rangeLabel, checked));
+    flash(ok ? "Copied to clipboard ✓" : "Couldn't copy — your browser blocked it.", ok);
+  };
+
+  const share = async () => {
+    const result = await shareText("HerBalance grocery list", groceryListText(data, rangeLabel, checked));
+    if (result === "shared") flash("Shared ✓");
+    else if (result === "unsupported") {
+      const ok = await copyText(groceryListText(data, rangeLabel, checked));
+      flash(ok ? "Sharing isn't available in this browser — copied the list instead ✓" : "Sharing isn't available in this browser.", ok);
+    }
+  };
+
+  const downloadPdf = async () => {
+    setPdfBusy(true);
+    try {
+      await downloadGroceryPdf(data, rangeLabel, checked);
+      flash("PDF downloaded ✓");
+    } catch {
+      flash("Couldn't create the PDF. Please try again.", false);
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   if (!dietPlan) {
@@ -96,24 +123,35 @@ export function Grocery() {
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
+          onClick={() => void share()}
           className="rounded-btn border border-border bg-white px-4 py-2 text-sm font-semibold text-ink-dark shadow-sm btn-press hover:shadow-card"
         >
           Share List
         </button>
         <button
           type="button"
-          onClick={copy}
+          onClick={() => void copy()}
           className="rounded-btn border border-border bg-white px-4 py-2 text-sm font-semibold text-ink-dark shadow-sm btn-press hover:shadow-card"
         >
           Copy to clipboard
         </button>
         <button
           type="button"
-          className="rounded-btn border border-border bg-white px-4 py-2 text-sm font-semibold text-ink-dark shadow-sm btn-press hover:shadow-card"
+          onClick={() => void downloadPdf()}
+          disabled={pdfBusy || data.length === 0}
+          className="rounded-btn border border-border bg-white px-4 py-2 text-sm font-semibold text-ink-dark shadow-sm btn-press hover:shadow-card disabled:opacity-50"
         >
-          Download PDF
+          {pdfBusy ? "Creating PDF…" : "Download PDF"}
         </button>
       </div>
+      {status && (
+        <p
+          role="status"
+          className={`-mt-3 text-sm font-medium ${status.ok ? "text-emerald-700" : "text-rose-700"}`}
+        >
+          {status.text}
+        </p>
+      )}
 
       <div className="space-y-6">
         {data.map((cat) => (
