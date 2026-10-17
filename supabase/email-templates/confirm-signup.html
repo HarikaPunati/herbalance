@@ -1,0 +1,102 @@
+<!--
+  Supabase → Authentication → Emails → Templates → "Confirm signup"
+  Subject:  Confirm your HerBalance account 🪷
+  Paste everything below this comment into the "Message body" (Source) box.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Confirm your HerBalance account</title>
+</head>
+<body style="margin:0; padding:0; background-color:#F0F7FF;">
+  <!-- Preview text shown in the inbox list -->
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:#F0F7FF;">
+    One tap to confirm your email and start your cycle-synced plan.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F0F7FF;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px; background-color:#FFFFFF; border-radius:20px; border:1px solid #E2E8F0;">
+          <!-- Gradient bar -->
+          <tr>
+            <td style="height:6px; line-height:6px; font-size:0; border-radius:20px 20px 0 0; background-color:#3B82F6; background-image:linear-gradient(90deg,#3B82F6,#7C3AED);">&nbsp;</td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:36px 32px 8px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" width="64" height="64" style="width:64px; height:64px; border-radius:32px; background-color:#F5F3FF; font-size:32px; line-height:64px;">🪷</td>
+                </tr>
+              </table>
+              <p style="margin:16px 0 0 0; font-family:'Plus Jakarta Sans',Inter,Helvetica,Arial,sans-serif; font-size:14px; font-weight:700; letter-spacing:0.5px; color:#3B82F6;">HerBalance</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 32px 0 32px; font-family:Inter,Helvetica,Arial,sans-serif;">
+              <h1 style="margin:0; text-align:center; font-family:'Plus Jakarta Sans',Inter,Helvetica,Arial,sans-serif; font-size:24px; line-height:32px; font-weight:700; color:#1E3A5F;">
+                Welcome — let&rsquo;s confirm it&rsquo;s you
+              </h1>
+              <p style="margin:16px 0 0 0; text-align:center; font-size:15px; line-height:24px; color:#475569;">
+                Thanks for joining HerBalance. Confirm your email to save your plans and progress to your account, on any device.
+              </p>
+            </td>
+          </tr>
+          <!-- Button -->
+          <tr>
+            <td align="center" style="padding:28px 32px 8px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="border-radius:12px; background-color:#3B82F6;">
+                    <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block; padding:14px 32px; font-family:'Plus Jakarta Sans',Inter,Helvetica,Arial,sans-serif; font-size:16px; font-weight:700; color:#FFFFFF; text-decoration:none; border-radius:12px;">
+                      Confirm my email
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 0 32px; font-family:Inter,Helvetica,Arial,sans-serif;">
+              <p style="margin:0; text-align:center; font-size:13px; line-height:20px; color:#94A3B8;">
+                Button not working? Copy this link into your browser:
+              </p>
+              <p style="margin:6px 0 0 0; text-align:center; font-size:12px; line-height:18px; word-break:break-all;">
+                <a href="{{ .ConfirmationURL }}" style="color:#3B82F6; text-decoration:underline;">{{ .ConfirmationURL }}</a>
+              </p>
+            </td>
+          </tr>
+          <!-- What's next -->
+          <tr>
+            <td style="padding:28px 32px 0 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F8FAFF; border-radius:14px;">
+                <tr>
+                  <td style="padding:18px 20px; font-family:Inter,Helvetica,Arial,sans-serif; font-size:14px; line-height:22px; color:#475569;">
+                    <strong style="color:#1E3A5F;">What happens next</strong><br>
+                    🎯&nbsp; Tell us your goal and cycle<br>
+                    🥗&nbsp; Get meals, water and calories matched to your phase<br>
+                    💪&nbsp; Train with workouts that fit your energy each day
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px 32px 32px; font-family:Inter,Helvetica,Arial,sans-serif;">
+              <p style="margin:0; text-align:center; font-size:12px; line-height:18px; color:#94A3B8;">
+                Didn&rsquo;t sign up for HerBalance? You can safely ignore this email — the account stays inactive unless this link is used.
+              </p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 0 0 0; font-family:Inter,Helvetica,Arial,sans-serif; font-size:11px; line-height:16px; color:#94A3B8;">
+          HerBalance · General wellness guidance, not medical advice
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
