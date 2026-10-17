@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import { clearLocalUserData, pullUserData } from "./cloudSync";
+import { authHeader, clearLocalUserData, pullUserData } from "./cloudSync";
 
 type AuthState = {
   /** false while the session is being restored and the user's data pulled */
@@ -63,8 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const deleteAccount = async () => {
     if (supabase) {
-      const { error } = await supabase.rpc("delete_my_account");
-      if (error) throw new Error(error.message);
+      const res = await fetch("/api/delete-account", { method: "POST", headers: await authHeader() });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "We couldn't delete your account. Please try again.");
+      }
       await supabase.auth.signOut();
     }
     clearLocalUserData();
