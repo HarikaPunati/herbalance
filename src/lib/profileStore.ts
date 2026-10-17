@@ -1,4 +1,5 @@
 import { pushProfile } from "./cloudSync";
+import type { AppSettings } from "./units";
 
 export const PROFILE_KEY = "herbalance_profile";
 const WORKOUT_PREFS_KEY = "herbalance_workout_prefs";
@@ -23,6 +24,7 @@ export type StoredProfile = {
   cycle_length: string;
   primary_goal?: string;
   notes?: string;
+  settings?: Partial<AppSettings>;
 };
 
 export { CONDITION_NAMES } from "./conditions";

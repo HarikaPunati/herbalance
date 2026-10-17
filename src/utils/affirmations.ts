@@ -1,13 +1,5 @@
 import type { CyclePhaseKey } from "../types/cycle";
-import { getPhaseForDay } from "../types/cycle";
 
-/** First cycle day of each phase (aligned with `getPhaseForDay` for a 28-day model). */
-const PHASE_START: Record<CyclePhaseKey, number> = {
-  menstrual: 1,
-  follicular: 6,
-  ovulatory: 14,
-  luteal: 18,
-};
 
 /** Menstrual — rest, nourish, inward (15+). */
 const MENSTRUAL: readonly string[] = [
@@ -97,20 +89,10 @@ const POOLS: Record<CyclePhaseKey, readonly string[]> = {
 };
 
 /**
- * Phase-aware affirmation for this cycle day.
- *
- * - Uses the pool for the **physiological** phase from `cycleDay` when `phase` does not match
- *   (so copy always matches the real cycle day).
- * - **Consecutive cycle days in the same phase** step through the pool without repeating until
- *   it wraps (0-based offset from the first day of that phase).
- * - Optional `rotation` (e.g. refresh) advances within the same pool.
+ * Phase-aware affirmation for this cycle day. Consecutive days step through the phase's pool
+ * without repeating until it wraps; `rotation` (the refresh button) advances within it.
  */
 export function getAffirmation(phase: CyclePhaseKey, cycleDay: number, rotation = 0): string {
-  const physiological = getPhaseForDay(cycleDay);
-  const poolPhase = phase === physiological ? phase : physiological;
-  const pool = POOLS[poolPhase];
-  const start = PHASE_START[poolPhase];
-  const dayOffsetWithinPhase = Math.max(0, cycleDay - start);
-  const idx = (dayOffsetWithinPhase + rotation) % pool.length;
-  return pool[idx];
+  const pool = POOLS[phase];
+  return pool[(Math.max(0, cycleDay - 1) + rotation) % pool.length];
 }

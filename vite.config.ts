@@ -3,6 +3,10 @@ import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { POST as dietPlan } from "./api/diet-plan";
 import { POST as deleteAccount } from "./api/delete-account";
+import vercelConfig from "./vercel.json";
+
+// `vite preview` sends the same security headers as production, so they can be tested locally.
+const PROD_HEADERS = Object.fromEntries(vercelConfig.headers[0].headers.map((h) => [h.key, h.value]));
 
 const ROUTES: Record<string, (req: Request) => Promise<Response>> = {
   "/api/diet-plan": dietPlan,
@@ -51,5 +55,6 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), localApi()],
+    preview: { headers: PROD_HEADERS },
   };
 });

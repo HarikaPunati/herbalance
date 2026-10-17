@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CyclePhaseKey } from "../types/cycle";
+import { getPhaseForDay, phaseRanges } from "../types/cycle";
 
 const PROFILE_KEY = "herbalance_profile";
 
@@ -12,6 +13,8 @@ export type ProfileDataResult = {
   cycleLengthStr: string;
   phase: CyclePhaseKey;
   nextPhaseDays: number;
+  /** e.g. "Tue, Nov 4" — empty when no period date is saved */
+  nextPeriodDate: string;
 };
 
 function compute(): ProfileDataResult {
@@ -34,25 +37,18 @@ function compute(): ProfileDataResult {
       cycleDay = Math.max(1, ((daysSince % len) + len) % len + 1);
     }
 
-    // Phase — proportional boundaries (same formula as Profile.tsx)
-    let phase: CyclePhaseKey = "follicular";
-    if (lastPeriodDate && cycleLengthStr !== "Irregular") {
-      if (cycleDay <= 5) phase = "menstrual";
-      else if (cycleDay <= Math.round(len * 0.35)) phase = "follicular";
-      else if (cycleDay <= Math.round(len * 0.55)) phase = "ovulatory";
-      else phase = "luteal";
+    // Phase from the shared model (types/cycle.ts). Irregular cycles fall back to follicular.
+    const phase: CyclePhaseKey = lastPeriodDate && cycleLengthStr !== "Irregular" ? getPhaseForDay(cycleDay, len) : "follicular";
+    const nextPhaseDays = Math.max(1, phaseRanges(len)[phase].end - cycleDay + 1);
+
+    // Next expected period: the first day after this cycle ends
+    let nextPeriodDate = "";
+    if (lastPeriodDate) {
+      const next = new Date(Date.now() + (len - cycleDay + 1) * 86_400_000);
+      nextPeriodDate = next.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
     }
 
-    // Days until next phase starts
-    const boundaries: Record<CyclePhaseKey, number> = {
-      menstrual:  5,
-      follicular: Math.round(len * 0.35),
-      ovulatory:  Math.round(len * 0.55),
-      luteal:     len,
-    };
-    const nextPhaseDays = Math.max(1, boundaries[phase] - cycleDay + 1);
-
-    return { userName, initials, lastPeriodDate, cycleDay, cycleLength: len, cycleLengthStr, phase, nextPhaseDays };
+    return { userName, initials, lastPeriodDate, cycleDay, cycleLength: len, cycleLengthStr, phase, nextPhaseDays, nextPeriodDate };
   } catch {
     return {
       userName:       "there",
@@ -63,6 +59,7 @@ function compute(): ProfileDataResult {
       cycleLengthStr: "28",
       phase:          "follicular",
       nextPhaseDays:  4,
+      nextPeriodDate: "",
     };
   }
 }

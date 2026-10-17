@@ -190,7 +190,7 @@ const MOOD_BADGE: Record<WorkoutIntensity, string> = {
 export function Workout() {
   const { entry, save, reset, needsSetup, needsMood } = useDailyWorkout();
   const { prefs } = useWorkoutPrefs();
-  const { phase, cycleDay, cycleLength } = useProfileData();
+  const { phase, cycleDay, cycleLength, nextPhaseDays } = useProfileData();
   const targets = useTargets();
   const [showSheet, setShowSheet] = useState(false);
   const [done, setDone] = useState<Record<string, boolean>>({});
@@ -371,7 +371,7 @@ export function Workout() {
           phase={phase}
           day={cycleDay}
           cycleLength={cycleLength}
-          nextPhaseDays={3}
+          nextPhaseDays={nextPhaseDays}
           tip={bannerTip}
           compact
           intensity={entry.mood === "restorative" ? "Gentle, breath-led movement" : entry.mood === "high" ? "High intensity" : "Moderate effort"}

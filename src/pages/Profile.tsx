@@ -9,6 +9,9 @@ import { supabase } from "../lib/supabase";
 import { Link, useNavigate } from "react-router-dom";
 import { GOALS, toGoalId, type GoalId } from "../lib/goals";
 import type { CyclePhaseKey } from "../types/cycle";
+import { getPhaseForDay } from "../types/cycle";
+import { useProfileData } from "../hooks/useProfileData";
+import { cmToFtIn, formatHeight, formatWeight, ftInToCm, kgToLb, lbToKg, readSettings, type AppSettings } from "../lib/units";
 import type { ReactNode } from "react";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -75,6 +78,7 @@ type ProfileData = {
   last_period_date:     string;
   cycle_length:         string;
   primary_goal:         GoalId;
+  settings?:            Partial<AppSettings>;
 };
 
 const PROFILE_KEY = "herbalance_profile";
@@ -120,17 +124,16 @@ function persistProfile(p: ProfileData) {
   localStorage.setItem("herbalance_cuisine_prefs", JSON.stringify({ cuisines: p.cuisine_preferences }));
 }
 
+const unitInputCls =
+  "mt-1 w-full rounded-[10px] border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30";
+
 // ─── Phase auto-calculation ────────────────────────────────────────────────────
 
 function calcPhase(lastPeriod: string, cycleLen: string): CyclePhaseKey {
   if (!lastPeriod || cycleLen === "Irregular") return "follicular";
   const daysSince = Math.floor((Date.now() - new Date(lastPeriod).getTime()) / 86_400_000);
   const len = parseInt(cycleLen, 10) || 28;
-  const day = ((daysSince % len) + len) % len + 1;
-  if (day <= 5) return "menstrual";
-  if (day <= Math.round(len * 0.35)) return "follicular";
-  if (day <= Math.round(len * 0.55)) return "ovulatory";
-  return "luteal";
+  return getPhaseForDay(((daysSince % len) + len) % len + 1, len);
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
@@ -249,11 +252,28 @@ export function Profile() {
   const [editing, setEditing] = useState<string | null>(null);
   const [toast,   setToast]   = useState<"success" | "error" | null>(null);
 
-  const [affirm,  setAffirm]  = useState(true);
-  const [meal,    setMeal]    = useState(true);
-  const [workout, setWorkout] = useState(false);
-  const [metric,  setMetric]  = useState<"metric" | "imperial">("metric");
-  const [theme,   setTheme]   = useState(false);
+  const settings = readSettings(profile);
+  const { cycleDay } = useProfileData();
+  const memberSince = session?.user.created_at
+    ? new Date(session.user.created_at).toLocaleDateString(undefined, { month: "long", year: "numeric" })
+    : null;
+
+  // Imperial inputs keep their own text while typing; kg/cm in the draft stay the source of truth.
+  const [impWeight, setImpWeight] = useState("");
+  const [impFt, setImpFt] = useState("");
+  const [impIn, setImpIn] = useState("");
+
+  async function updateSettings(patch: Partial<AppSettings>) {
+    const next = { ...profile, settings: { ...settings, ...patch } };
+    setProfile(next);
+    setDraft((d) => ({ ...d, settings: next.settings }));
+    persistProfile(next);
+    try {
+      await pushProfile(next);
+    } catch {
+      showToast("error");
+    }
+  }
 
   const personalRef = useRef<HTMLDivElement>(null);
   const { prefs: wpPrefs, update: updateWp } = useWorkoutPrefs();
@@ -278,8 +298,18 @@ export function Profile() {
     setDraft((d) => ({ ...d, [key]: val }));
   }
 
+  function seedImperialInputs(p: ProfileData) {
+    const kg = parseFloat(p.weight_kg);
+    const cm = parseFloat(p.height_cm);
+    setImpWeight(kg ? String(kgToLb(kg)) : "");
+    const fi = cm ? cmToFtIn(cm) : null;
+    setImpFt(fi ? String(fi.ft) : "");
+    setImpIn(fi ? String(fi.inches) : "");
+  }
+
   function startEdit(section: string) {
     setDraft({ ...profile });
+    seedImperialInputs(profile);
     setOpen(section);
     setEditing(section);
   }
@@ -302,6 +332,7 @@ export function Profile() {
     setOpen("personal");
     setEditing("personal");
     setDraft({ ...profile });
+    seedImperialInputs(profile);
     setTimeout(() => personalRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
   }
 
@@ -368,7 +399,9 @@ export function Profile() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-xl font-bold text-ink-dark">{displayName}</p>
-          <p className="text-sm text-ink-mid">Member since May 2026</p>
+          <p className="text-sm text-ink-mid">
+            {memberSince ? `Member since ${memberSince}` : "Saved on this device"}
+          </p>
         </div>
       </div>
 
@@ -387,8 +420,10 @@ export function Profile() {
           </p>
         </div>
         <div className="rounded-card border border-border bg-white p-4 text-center shadow-card">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Days tracked</p>
-          <p className="mt-2 font-display text-2xl font-bold text-ink-dark">28</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Cycle day</p>
+          <p className="mt-2 font-display text-2xl font-bold text-ink-dark">
+            {profile.last_period_date ? cycleDay : "—"}
+          </p>
         </div>
       </div>
 
@@ -560,8 +595,8 @@ export function Profile() {
                 {[
                   { label: "Name",     value: profile.full_name    || "—" },
                   { label: "Age",      value: profile.age          ? `${profile.age} yrs` : "—" },
-                  { label: "Weight",   value: profile.weight_kg    ? `${profile.weight_kg} kg`  : "—" },
-                  { label: "Height",   value: profile.height_cm    ? `${profile.height_cm} cm`  : "—" },
+                  { label: "Weight",   value: formatWeight(profile.weight_kg, settings.units) },
+                  { label: "Height",   value: formatHeight(profile.height_cm, settings.units) },
                   { label: "Activity", value: profile.activity_level },
                 ].map(({ label, value }) => (
                   <div key={label} className="rounded-input border border-border bg-brand-surface p-2.5">
@@ -581,28 +616,78 @@ export function Profile() {
                     className="mt-1 w-full rounded-[10px] border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
                   />
                 </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {([
-                    { label: "Age",    key: "age"      as const, unit: "yrs" },
-                    { label: "Weight", key: "weight_kg" as const, unit: "kg"  },
-                    { label: "Height", key: "height_cm" as const, unit: "cm"  },
-                  ]).map((f) => (
-                    <label key={f.key} className="block">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">{f.label}</span>
-                      <div className="relative mt-1">
-                        <input
-                          type="number"
-                          value={draft[f.key]}
-                          onChange={(e) => patchDraft(f.key, e.target.value)}
-                          className="w-full rounded-[10px] border border-border bg-white px-3 py-2.5 pr-10 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
-                        />
-                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-soft">
-                          {f.unit}
-                        </span>
-                      </div>
+                {settings.units === "metric" ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    {([
+                      { label: "Age",    key: "age"      as const, unit: "yrs" },
+                      { label: "Weight", key: "weight_kg" as const, unit: "kg"  },
+                      { label: "Height", key: "height_cm" as const, unit: "cm"  },
+                    ]).map((f) => (
+                      <label key={f.key} className="block">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">{f.label}</span>
+                        <div className="relative mt-1">
+                          <input
+                            type="number"
+                            value={draft[f.key]}
+                            onChange={(e) => patchDraft(f.key, e.target.value)}
+                            className="w-full rounded-[10px] border border-border bg-white px-3 py-2.5 pr-10 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                          />
+                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-soft">
+                            {f.unit}
+                          </span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <label className="block">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Age</span>
+                      <input type="number" value={draft.age} onChange={(e) => patchDraft("age", e.target.value)} className={unitInputCls} />
                     </label>
-                  ))}
-                </div>
+                    <label className="block">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Weight (lb)</span>
+                      <input
+                        type="number"
+                        value={impWeight}
+                        onChange={(e) => {
+                          setImpWeight(e.target.value);
+                          const lb = parseFloat(e.target.value);
+                          patchDraft("weight_kg", lb ? String(lbToKg(lb)) : "");
+                        }}
+                        className={unitInputCls}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Height (ft)</span>
+                      <input
+                        type="number"
+                        value={impFt}
+                        onChange={(e) => {
+                          setImpFt(e.target.value);
+                          const ft = parseFloat(e.target.value) || 0;
+                          const inch = parseFloat(impIn) || 0;
+                          patchDraft("height_cm", ft || inch ? String(ftInToCm(ft, inch)) : "");
+                        }}
+                        className={unitInputCls}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Height (in)</span>
+                      <input
+                        type="number"
+                        value={impIn}
+                        onChange={(e) => {
+                          setImpIn(e.target.value);
+                          const ft = parseFloat(impFt) || 0;
+                          const inch = parseFloat(e.target.value) || 0;
+                          patchDraft("height_cm", ft || inch ? String(ftInToCm(ft, inch)) : "");
+                        }}
+                        className={unitInputCls}
+                      />
+                    </label>
+                  </div>
+                )}
                 <label className="block">
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Activity Level</span>
                   <select
@@ -885,32 +970,43 @@ export function Profile() {
         <h2 className="font-display text-lg font-bold text-ink-dark">Settings</h2>
         <div className="mt-4 space-y-4">
           <label className="flex items-center justify-between gap-3 text-sm font-medium text-ink-dark">
-            Daily affirmation
-            <input type="checkbox" checked={affirm} onChange={() => setAffirm((v) => !v)} className="h-5 w-5 rounded border-primary text-primary focus:ring-primary" />
-          </label>
-          <label className="flex items-center justify-between gap-3 text-sm font-medium text-ink-dark">
-            Meal reminders
-            <input type="checkbox" checked={meal} onChange={() => setMeal((v) => !v)} className="h-5 w-5 rounded border-primary text-primary focus:ring-primary" />
-          </label>
-          <label className="flex items-center justify-between gap-3 text-sm font-medium text-ink-dark">
-            Workout reminders
-            <input type="checkbox" checked={workout} onChange={() => setWorkout((v) => !v)} className="h-5 w-5 rounded border-primary text-primary focus:ring-primary" />
+            <span>
+              Daily affirmation
+              <span className="block text-xs font-normal text-ink-soft">Show the affirmation card on your dashboard</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.showAffirmation}
+              onChange={() => void updateSettings({ showAffirmation: !settings.showAffirmation })}
+              className="h-5 w-5 rounded border-primary text-primary focus:ring-primary"
+            />
           </label>
           <div className="flex items-center justify-between gap-3 text-sm font-medium text-ink-dark">
-            Units
+            <span>
+              Units
+              <span className="block text-xs font-normal text-ink-soft">For weight and height</span>
+            </span>
             <div className="inline-flex rounded-full border border-border p-1">
-              <button type="button" onClick={() => setMetric("metric")} className={`rounded-full px-3 py-1 text-xs font-semibold ${metric === "metric" ? "bg-primary text-white" : "text-ink-mid"}`}>
-                kg / cm
-              </button>
-              <button type="button" onClick={() => setMetric("imperial")} className={`rounded-full px-3 py-1 text-xs font-semibold ${metric === "imperial" ? "bg-primary text-white" : "text-ink-mid"}`}>
-                lbs / ft
-              </button>
+              {(["metric", "imperial"] as const).map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => void updateSettings({ units: u })}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${settings.units === u ? "bg-primary text-white" : "text-ink-mid"}`}
+                >
+                  {u === "metric" ? "kg / cm" : "lb / ft"}
+                </button>
+              ))}
             </div>
           </div>
-          <label className="flex items-center justify-between gap-3 text-sm font-medium text-ink-soft">
-            Theme (coming soon)
-            <input type="checkbox" checked={theme} onChange={() => setTheme((v) => !v)} disabled className="h-5 w-5 rounded border-border text-primary" />
-          </label>
+          <p className="flex items-center justify-between gap-3 text-sm font-medium text-ink-soft">
+            Meal &amp; workout reminders
+            <span className="rounded-full bg-brand-surface px-2.5 py-0.5 text-xs">Coming soon</span>
+          </p>
+          <p className="flex items-center justify-between gap-3 text-sm font-medium text-ink-soft">
+            Dark theme
+            <span className="rounded-full bg-brand-surface px-2.5 py-0.5 text-xs">Coming soon</span>
+          </p>
         </div>
         {!localMode && (
           <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-4">

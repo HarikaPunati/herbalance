@@ -4,7 +4,7 @@ import { ArrowLeft, Check, Sparkles } from "lucide-react";
 import { saveStoredProfile } from "../lib/profileStore";
 import { GOALS, type GoalId } from "../lib/goals";
 import type { CyclePhaseKey } from "../types/cycle";
-import { PHASE_META } from "../types/cycle";
+import { PHASE_META, phaseRanges } from "../types/cycle";
 
 const CONDITIONS = [
   { id: "thyroid", emoji: "🦋", name: "Thyroid", desc: "Affects metabolism & energy" },
@@ -140,14 +140,10 @@ export function Onboarding() {
   // If no period date was entered, estimate one from the phase card picked (midpoint of that phase).
   const estimateLastPeriod = (): string => {
     const len = parseInt(cycleLen, 10) || 28;
-    const midDay: Record<CyclePhaseKey, number> = {
-      menstrual: 3,
-      follicular: Math.round((6 + len * 0.35) / 2),
-      ovulatory: Math.round((len * 0.35 + len * 0.55) / 2),
-      luteal: Math.round((len * 0.55 + len) / 2),
-    };
+    const r = phaseRanges(len);
+    const midDay = Math.round((r[phase].start + r[phase].end) / 2);
     const d = new Date();
-    d.setDate(d.getDate() - (midDay[phase] - 1));
+    d.setDate(d.getDate() - (midDay - 1));
     return d.toISOString().slice(0, 10);
   };
 

@@ -4,12 +4,14 @@ import { Link } from "react-router-dom";
 import { AffirmationCard } from "../components/AffirmationCard";
 import { CycleBanner } from "../components/CycleBanner";
 import { StatCard } from "../components/StatCard";
-import { PHASE_META } from "../types/cycle";
+import { PHASE_META, PHASE_TIP, getPhaseForDay } from "../types/cycle";
 import type { CyclePhaseKey } from "../types/cycle";
 import { useProfileData } from "../hooks/useProfileData";
 import { loadWorkoutLog } from "../hooks/useWorkoutLog";
 import { useTargets } from "../hooks/useTargets";
 import { goalLabel } from "../lib/goals";
+import { readSettings } from "../lib/units";
+import { loadStoredProfile } from "../lib/profileStore";
 import { loadLocalPlan, todayPlanIndex } from "../lib/dietPlanStore";
 
 const MEAL_TIME: Record<string, string> = {
@@ -27,12 +29,6 @@ const phaseDot: Record<CyclePhaseKey, string> = {
   luteal: "bg-phase-luteal-bg ring-1 ring-phase-luteal-text",
 };
 
-function phaseForCycleDay(day: number, len: number): CyclePhaseKey {
-  if (day <= 5) return "menstrual";
-  if (day <= Math.round(len * 0.35)) return "follicular";
-  if (day <= Math.round(len * 0.55)) return "ovulatory";
-  return "luteal";
-}
 
 function formatDate(d: Date) {
   return d.toLocaleDateString(undefined, {
@@ -56,17 +52,12 @@ export function Dashboard() {
   const totalBurned = todayLog.reduce((sum, e) => sum + e.calories, 0);
 
   const targets = useTargets();
+  const settings = useMemo(() => readSettings(loadStoredProfile()), []);
   const [showWhy, setShowWhy] = useState(false);
   const dietPlan = useMemo(loadLocalPlan, []);
   const planIdx = dietPlan ? todayPlanIndex(dietPlan) : null;
   const todayPlan = dietPlan && planIdx !== null ? dietPlan.plan[planIdx] : null;
 
-  const phaseTip: Record<CyclePhaseKey, string> = {
-    menstrual:  "Rest and nourish — your body is doing important work",
-    follicular: "Energy rising — great time for strength and new goals",
-    ovulatory:  "Peak energy week — perfect for strength training",
-    luteal:     "Wind down and restore — focus on gentle movement",
-  };
 
   const weekDays = useMemo(() => {
     const today = new Date();
@@ -79,7 +70,7 @@ export function Dashboard() {
       date.setDate(monday.getDate() + i);
       const offset = Math.round((date.getTime() - today.getTime()) / 86_400_000);
       const dayCycleDay = ((cycleDay - 1 + offset) % cycleLength + cycleLength) % cycleLength + 1;
-      const dayPhase = phaseForCycleDay(dayCycleDay, cycleLength);
+      const dayPhase = getPhaseForDay(dayCycleDay, cycleLength);
       const isToday = offset === 0;
       const label = date.toLocaleDateString(undefined, { weekday: "short" }).slice(0, 3);
       return { label, dayCycleDay, dayPhase, isToday, index: i };
@@ -111,14 +102,14 @@ export function Dashboard() {
         </div>
       </div>
 
-      <AffirmationCard phase={phase} cycleDay={cycleDay} />
+      {settings.showAffirmation && <AffirmationCard phase={phase} cycleDay={cycleDay} />}
 
       <CycleBanner
         phase={phase}
         day={cycleDay}
         cycleLength={cycleLength}
         nextPhaseDays={nextPhaseDays}
-        tip={phaseTip[phase]}
+        tip={PHASE_TIP[phase]}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
